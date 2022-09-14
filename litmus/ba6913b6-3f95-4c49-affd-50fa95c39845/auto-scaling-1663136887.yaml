@@ -1,0 +1,149 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  creationTimestamp: null
+  labels:
+    cluster_id: 7f69f6db-971b-4f47-a5e4-e5c3f0306b75
+    subject: auto-scaling_litmus
+    workflow_id: dbac17d8-ec24-4d29-8fef-3d7fcaa6cb77
+    workflows.argoproj.io/controller-instanceid: 7f69f6db-971b-4f47-a5e4-e5c3f0306b75
+  name: auto-scaling-1663136887
+  namespace: litmus
+spec:
+  arguments:
+    parameters:
+    - name: adminModeNamespace
+      value: litmus
+  entrypoint: custom-chaos
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+  serviceAccountName: argo-chaos
+  templates:
+  - inputs: {}
+    metadata: {}
+    name: custom-chaos
+    outputs: {}
+    steps:
+    - - arguments: {}
+        name: install-chaos-experiments
+        template: install-chaos-experiments
+    - - arguments: {}
+        name: container-kill-emq
+        template: container-kill-emq
+  - container:
+      args:
+      - kubectl apply -f /tmp/container-kill-emq.yaml -n {{workflow.parameters.adminModeNamespace}}
+        &&  sleep 30
+      command:
+      - sh
+      - -c
+      image: litmuschaos/k8s:2.11.0
+      name: ""
+      resources: {}
+    inputs:
+      artifacts:
+      - name: container-kill-emq
+        path: /tmp/container-kill-emq.yaml
+        raw:
+          data: "apiVersion: litmuschaos.io/v1alpha1\ndescription:\n  message: |\n
+            \   Kills a container belonging to an application pod \nkind: ChaosExperiment\nmetadata:\n
+            \ name: container-kill\n  labels:\n    name: container-kill\n    app.kubernetes.io/part-of:
+            litmus\n    app.kubernetes.io/component: chaosexperiment\n    app.kubernetes.io/version:
+            2.11.0\nspec:\n  definition:\n    scope: Namespaced\n    permissions:\n
+            \     - apiGroups:\n          - \"\"\n        resources:\n          -
+            pods\n        verbs:\n          - create\n          - delete\n          -
+            get\n          - list\n          - patch\n          - update\n          -
+            deletecollection\n      - apiGroups:\n          - \"\"\n        resources:\n
+            \         - events\n        verbs:\n          - create\n          - get\n
+            \         - list\n          - patch\n          - update\n      - apiGroups:\n
+            \         - \"\"\n        resources:\n          - configmaps\n        verbs:\n
+            \         - get\n          - list\n      - apiGroups:\n          - \"\"\n
+            \       resources:\n          - pods/log\n        verbs:\n          -
+            get\n          - list\n          - watch\n      - apiGroups:\n          -
+            \"\"\n        resources:\n          - pods/exec\n        verbs:\n          -
+            get\n          - list\n          - create\n      - apiGroups:\n          -
+            apps\n        resources:\n          - deployments\n          - statefulsets\n
+            \         - replicasets\n          - daemonsets\n        verbs:\n          -
+            list\n          - get\n      - apiGroups:\n          - apps.openshift.io\n
+            \       resources:\n          - deploymentconfigs\n        verbs:\n          -
+            list\n          - get\n      - apiGroups:\n          - \"\"\n        resources:\n
+            \         - replicationcontrollers\n        verbs:\n          - get\n
+            \         - list\n      - apiGroups:\n          - argoproj.io\n        resources:\n
+            \         - rollouts\n        verbs:\n          - list\n          - get\n
+            \     - apiGroups:\n          - batch\n        resources:\n          -
+            jobs\n        verbs:\n          - create\n          - list\n          -
+            get\n          - delete\n          - deletecollection\n      - apiGroups:\n
+            \         - litmuschaos.io\n        resources:\n          - chaosengines\n
+            \         - chaosexperiments\n          - chaosresults\n        verbs:\n
+            \         - create\n          - list\n          - get\n          - patch\n
+            \         - update\n          - delete\n    image: litmuschaos/go-runner:2.11.0\n
+            \   imagePullPolicy: Always\n    args:\n      - -c\n      - ./experiments
+            -name container-kill\n    command:\n      - /bin/bash\n    env:\n      -
+            name: TARGET_CONTAINER\n        value: \"\"\n      - name: RAMP_TIME\n
+            \       value: \"\"\n      - name: LIB\n        value: litmus\n      -
+            name: TARGET_PODS\n        value: \"\"\n      - name: CHAOS_INTERVAL\n
+            \       value: \"10\"\n      - name: SIGNAL\n        value: SIGKILL\n
+            \     - name: SOCKET_PATH\n        value: /var/run/docker.sock\n      -
+            name: CONTAINER_RUNTIME\n        value: docker\n      - name: TOTAL_CHAOS_DURATION\n
+            \       value: \"20\"\n      - name: PODS_AFFECTED_PERC\n        value:
+            \"\"\n      - name: NODE_LABEL\n        value: \"\"\n      - name: LIB_IMAGE\n
+            \       value: litmuschaos/go-runner:2.11.0\n      - name: SEQUENCE\n
+            \       value: parallel\n    labels:\n      name: container-kill\n      app.kubernetes.io/part-of:
+            litmus\n      app.kubernetes.io/component: experiment-job\n      app.kubernetes.io/runtime-api-usage:
+            \"true\"\n      app.kubernetes.io/version: 2.11.0\n"
+    metadata: {}
+    name: install-chaos-experiments
+    outputs: {}
+  - container:
+      args:
+      - -file=/tmp/chaosengine-container-kill-emq.yaml
+      - -saveName=/tmp/engine-name
+      image: litmuschaos/litmus-checker:2.11.0
+      name: ""
+      resources: {}
+    inputs:
+      artifacts:
+      - name: container-kill-emq
+        path: /tmp/chaosengine-container-kill-emq.yaml
+        raw:
+          data: |
+            apiVersion: litmuschaos.io/v1alpha1
+            kind: ChaosEngine
+            metadata:
+              namespace: "{{workflow.parameters.adminModeNamespace}}"
+              generateName: container-kill-emq
+              labels:
+                instance_id: 7cb47b27-8dba-475a-a7b8-8384e52ad0b5
+            spec:
+              engineState: active
+              appinfo:
+                appns: default
+                applabel: app=nginx
+                appkind: deployment
+              chaosServiceAccount: litmus-admin
+              experiments:
+                - name: container-kill
+                  spec:
+                    components:
+                      env:
+                        - name: TOTAL_CHAOS_DURATION
+                          value: "20"
+                        - name: CHAOS_INTERVAL
+                          value: "10"
+                        - name: CONTAINER_RUNTIME
+                          value: docker
+                        - name: SOCKET_PATH
+                          value: /var/run/docker.sock
+                        - name: PODS_AFFECTED_PERC
+                          value: ""
+                        - name: TARGET_CONTAINER
+                          value: ""
+    metadata:
+      labels:
+        weight: "10"
+    name: container-kill-emq
+    outputs: {}
+status:
+  finishedAt: null
+  startedAt: null
